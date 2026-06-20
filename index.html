@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>GROZIN OPERATIONS — CS2 Edition</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family: 'Arial Black', sans-serif; }
+  body {
+    background: radial-gradient(circle at center, #1a1a2e 0%, #000 100%);
+    color: #f5a623;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  #game {
+    position: relative;
+    width: 960px;
+    height: 600px;
+    border: 3px solid #f5a623;
+    box-shadow: 0 0 40px #f5a623, inset 0 0 40px rgba(245,166,35,0.2);
+    background: #0d0d1a;
+  }
+  canvas { display:block; background:#1a1a2e; }
+
+  .screen {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column;
+    justify-content:center; align-items:center;
+    background: rgba(0,0,0,0.85);
+    z-index: 10;
+    padding: 20px;
+    text-align:center;
+  }
+  .hidden { display:none; }
+
+  h1 {
+    font-size: 54px;
+    color: #f5a623;
+    text-shadow: 0 0 20px #f5a623, 3px 3px 0 #000;
+    letter-spacing: 4px;
+    margin-bottom: 10px;
+  }
+  h2 { color:#fff; margin-bottom: 20px; font-size: 22px; }
+  p { color:#ddd; margin: 8px 0; font-size: 16px; max-width: 700px; line-height: 1.5; }
+
+  button {
+    background: linear-gradient(180deg, #f5a623, #c77d0a);
+    color: #000;
+    border: 2px solid #fff;
+    padding: 14px 36px;
+    margin: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    letter-spacing: 2px;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  button:hover {
+    background: #fff;
+    color: #f5a623;
+    transform: scale(1.05);
+    box-shadow: 0 0 20px #f5a623;
+  }
+
+  #hud {
+    position:absolute; top:10px; left:10px; right:10px;
+    display:flex; justify-content:space-between;
+    color:#f5a623; font-size: 20px;
+    text-shadow: 2px 2px 0 #000;
+    pointer-events:none;
+    z-index: 5;
+  }
+  #crosshair {
+    position:absolute;
+    width:20px; height:20px;
+    border:2px solid #0f0;
+    border-radius:50%;
+    pointer-events:none;
+    transform: translate(-50%,-50%);
+    z-index:6;
+    box-shadow: 0 0 8px #0f0;
+  }
+  #crosshair::before, #crosshair::after {
+    content:''; position:absolute; background:#0f0;
+  }
+  #crosshair::before { left:50%; top:-6px; width:2px; height:4px; transform:translateX(-50%); }
+  #crosshair::after { top:50%; left:-6px; width:4px; height:2px; transform:translateY(-50%); }
+
+  .secret {
+    position:absolute; bottom:5px; right:5px;
+    width:14px; height:14px;
+    background: rgba(255,255,255,0.05);
+    cursor: pointer;
+    z-index: 20;
+  }
+
+  .portrait {
+    width: 180px; height: 180px;
+    border: 3px solid #f5a623;
+    border-radius: 50%;
+    margin: 10px;
+    background: #222;
+    box-shadow: 0 0 20px #f5a623;
+  }
+
+  .brothers { display:flex; justify-content:center; align-items:center; gap:30px; }
+  .bro { text-align:center; }
+  .bro h3 { color:#f5a623; margin-top:8px; }
+
+  .easter {
+    background: linear-gradient(135deg, #ff4444, #aa0000);
+    color:#fff;
+    border-color:#fff;
+  }
+  .easter:hover { background:#fff; color:#aa0000; }
+
+  #muzzle {
+    position:absolute;
+    width:80px; height:80px;
+    pointer-events:none;
+    z-index: 4;
+    transform: translate(-50%,-50%);
+    display:none;
+  }
+</style>
+</head>
+<body>
+
+<div id="game">
+  <canvas id="canvas" width="960" height="600"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div>❤ HP: <span id="hp">100</span></div>
+    <div>🎯 KILLS: <span id="kills">0</span></div>
+    <div>🔫 AMMO: <span id="ammo">30</span> / 90</div>
+    <div>⏱ <span id="timer">60</span></div>
+  </div>
+  <div id="crosshair" class="hidden"></div>
+  <div id="muzzle"></div>
+
+  <!-- MENU -->
+  <div id="menu" class="screen">
+    <h1>GROZIN OPS</h1>
+    <h2>★ Counter-Strike 2 Edition ★</h2>
+    <p>Дмитрий Грозин — блондин в мерче Falcons, фанат m0NESY. Его старший брат Алексей — тоже блондин и тоже фанат m0NESY. Вместе они выходят на арену!</p>
+    <div style="margin-top:20px;">
+      <button onclick="startGame()">▶ ИГРАТЬ</button>
+      <button onclick="showBrothers()">👥 БРАТЬЯ ГРОЗИНЫ</button>
+      <button onclick="showMonesy()">⭐ m0NESY FAN ZONE</button>
+    </div>
+    <p style="margin-top:30px; font-size:13px; color:#888;">WASD — движение | ЛКМ — стрельба | R — перезарядка | ESC — меню</p>
+  </div>
+
+  <!-- BROTHERS -->
+  <div id="brothersScreen" class="screen hidden">
+    <h1>БРАТЬЯ ГРОЗИНЫ</h1>
+    <div class="brothers">
+      <div class="bro">
+        <canvas class="portrait" id="portraitDima" width="180" height="180"></canvas>
+        <h3>ДМИТРИЙ ГРОЗИН</h3>
+        <p>Младший брат. Блондин. Носит футболку Falcons.</p>
+      </div>
+      <div class="bro">
+        <canvas class="portrait" id="portraitAlex" width="180" height="180"></canvas>
+        <h3>АЛЕКСЕЙ ГРОЗИН</h3>
+        <p>Старший брат. Тоже блондин. Верный фанат m0NESY.</p>
+      </div>
+    </div>
+    <button onclick="backToMenu()">← НАЗАД</button>
+  </div>
+
+  <!-- MONESY -->
+  <div id="monesyScreen" class="screen hidden">
+    <h1>m0NESY FAN ZONE</h1>
+    <h2>Илья m0NESY Осипов — легенда CS2</h2>
+    <p>Дима и Лёша — самые преданные фанаты Ильи. Они знают все его кличи на AWP, все его ace-раунды и верят, что m0NESY — лучший игрок в мире!</p>
+    <p style="color:#f5a623; font-size:20px; margin-top:15px;">"m0NESY — это искусство!" 💚</p>
+    <button onclick="backToMenu()">← НАЗАД</button>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="gameOver" class="screen hidden">
+    <h1 id="endTitle">MATCH OVER</h1>
+    <h2>Убийств: <span id="finalKills">0</span></h2>
+    <button onclick="startGame()">🔄 РЕВАНШ</button>
+    <button onclick="backToMenu()">🏠 МЕНЮ</button>
+  </div>
+
+  <!-- ПАСХАЛКА (секретная кнопка) -->
+  <div class="secret" id="secretBtn" title="..."></div>
+</div>
+
+<script>
+/* ============ ЗВУКИ (Web Audio API) ============ */
+const AC = window.AudioContext || window.webkitAudioContext;
+const audio = new AC();
+
+function beep(freq, dur, type='square', vol=0.2) {
+  const o = audio.createOscillator();
+  const g = audio.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.value = vol;
+  o.connect(g); g.connect(audio.destination);
+  o.start();
+  g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + dur);
+  o.stop(audio.currentTime + dur);
+}
+
+function soundShot() {
+  // выстрел: шум + низкий щелчок
+  const buf = audio.createBuffer(1, audio.sampleRate*0.1, audio.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i=0;i<d.length;i++) d[i] = (Math.random()*2-1) * (1 - i/d.length);
+  const src = audio.createBufferSource(); src.buffer = buf;
+  const g = audio.createGain(); g.gain.value = 0.3;
+  src.connect(g); g.connect(audio.destination); src.start();
+  beep(120, 0.08, 'sawtooth', 0.25);
+}
+function soundHit()   { beep(800, 0.08, 'square', 0.3); beep(400, 0.15, 'triangle', 0.2); }
+function soundReload(){ beep(300,0.1,'square',0.2); setTimeout(()=>beep(600,0.1,'square',0.2),150); }
+function soundClick() { beep(1200, 0.05, 'square', 0.15); }
+function soundWin()   { [523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,0.2,'triangle',0.3),i*120)); }
+function soundLose()  { [400,300,200,100].forEach((f,i)=>setTimeout(()=>beep(f,0.3,'sawtooth',0.3),i*150)); }
+function soundEgg()   { [1046,1318,1568,2093,1568,1318,1046].forEach((f,i)=>setTimeout(()=>beep(f,0.15,'sine',0.25),i*100)); }
+
+/* ============ РИСОВАНИЕ ПЕРСОНАЖЕЙ ============ */
+function drawCharacter(ctx, x, y, size, isDima=true) {
+  const s = size;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Тело (футболка)
+  if (isDima) {
+    // Falcons мерч — чёрный с соколом
+    ctx.fillStyle = '#111';
+    ctx.fillRect(-s*0.4, -s*0.1, s*0.8, s*0.6);
+    // Логотип Falcons — стилизованный сокол
+    ctx.fillStyle = '#c9a227';
+    ctx.beginPath();
+    ctx.moveTo(0, -s*0.05);
+    ctx.lineTo(-s*0.2, s*0.15);
+    ctx.lineTo(-s*0.1, s*0.1);
+    ctx.lineTo(0, s*0.25);
+    ctx.lineTo(s*0.1, s*0.1);
+    ctx.lineTo(s*0.2, s*0.15);
+    ctx.closePath();
+    ctx.fill();
+    // FALCONS текст
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${s*0.08}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText('FALCONS', 0, s*0.42);
+  } else {
+    // Алексей — в мерче Spirit (зелёный)
+    ctx.fillStyle = '#00aa55';
+    ctx.fillRect(-s*0.4, -s*0.1, s*0.8, s*0.6);
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${s*0.1}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText('SPIRIT', 0, s*0.25);
+  }
+
+  // Шея
+  ctx.fillStyle = '#f5d0a9';
+  ctx.fillRect(-s*0.08, -s*0.18, s*0.16, s*0.1);
+
+  // Голова
+  ctx.fillStyle = '#f5d0a9';
+  ctx.beginPath();
+  ctx.arc(0, -s*0.35, s*0.22, 0, Math.PI*2);
+  ctx.fill();
+
+  // Волосы — блонд
+  ctx.fillStyle = '#f5e28a';
+  ctx.beginPath();
+  ctx.arc(0, -s*0.42, s*0.23, Math.PI, 0);
+  ctx.fill();
+  // Чёлка
+  ctx.beginPath();
+  ctx.ellipse(-s*0.05, -s*0.5, s*0.15, s*0.08, -0.3, 0, Math.PI*2);
+  ctx.fill();
+
+  // Глаза
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.arc(-s*0.08, -s*0.35, s*0.025, 0, Math.PI*2);
+  ctx.arc(s*0.08, -s*0.35, s*0.025, 0, Math.PI*2);
+  ctx.fill();
+
+  // Улыбка
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, -s*0.28, s*0.06, 0.1, Math.PI-0.1);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// Рисуем портреты в меню братьев
+function drawPortraits() {
+  const c1 = document.getElementById('portraitDima').getContext('2d');
+  c1.fillStyle = '#222'; c1.fillRect(0,0,180,180);
+  drawCharacter(c1, 90, 110, 160, true);
+
+  const c2 = document.getElementById('portraitAlex').getContext('2d');
+  c2.fillStyle = '#222'; c2.fillRect(0,0,180,180);
+  drawCharacter(c2, 90, 110, 160, false);
+}
+
+/* ============ НАВИГАЦИЯ ============ */
+function hideAll() {
+  ['menu','brothersScreen','monesyScreen','gameOver'].forEach(id=>{
+    document.getElementById(id).classList.add('hidden');
+  });
+}
+function backToMenu() {
+  soundClick();
+  hideAll();
+  document.getElementById('menu').classList.remove('hidden');
+  document.getElementById('hud').classList.add('hidden');
+  document.getElementById('crosshair').classList.add('hidden');
+  running = false;
+}
+function showBrothers() { soundClick(); hideAll(); document.getElementById('brothersScreen').classList.remove('hidden'); drawPortraits(); }
+function showMonesy()   { soundClick(); hideAll(); document.getElementById('monesyScreen').classList.remove('hidden'); }
+
+/* ============ ИГРА ============ */
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+let running = false;
+let player, enemies, bullets, particles, kills, hp, ammo, reserve, timer, lastTime, spawnTimer;
+const keys = {};
+
+function startGame() {
+  soundClick();
+  hideAll();
+  document.getElementById('hud').classList.remove('hidden');
+  document.getElementById('crosshair').classList.remove('hidden');
+
+  player = { x: W/2, y: H/2, r: 20, speed: 3.2, angle: 0 };
+  enemies = [];
+  bullets = [];
+  particles = [];
+  kills = 0;
+  hp = 100;
+  ammo = 30;
+  reserve = 90;
+  timer = 60;
+  spawnTimer = 0;
+  lastTime = performance.now();
+  running = true;
+  loop();
+}
+
+function spawnEnemy() {
+  const side = Math.floor(Math.random()*4);
+  let x, y;
+  if (side===0) { x = Math.random()*W; y = -30; }
+  else if (side===1) { x = W+30; y = Math.random()*H; }
+  else if (side===2) { x = Math.random()*W; y = H+30; }
+  else { x = -30; y = Math.random()*H; }
+  enemies.push({ x, y, r: 22, hp: 2, speed: 0.8 + Math.random()*0.8 });
+}
+
+function shoot() {
+  if (!running) return;
+  if (ammo <= 0) { beep(200, 0.1, 'square', 0.2); return; }
+  ammo--;
+  soundShot();
+  const spread = (Math.random()-0.5) * 0.05;
+  const a = player.angle + spread;
+  bullets.push({
+    x: player.x + Math.cos(a)*25,
+    y: player.y + Math.sin(a)*25,
+    vx: Math.cos(a)*12,
+    vy: Math.sin(a)*12,
+    life: 60
+  });
+  // вспышка
+  for (let i=0;i<5;i++) {
+    particles.push({
+      x: player.x + Math.cos(a)*30,
+      y: player.y + Math.sin(a)*30,
+      vx: Math.cos(a + (Math.random()-0.5))*3,
+      vy: Math.sin(a + (Math.random()-0.5))*3,
+      life: 10, color: '#ffcc00'
+    });
+  }
+  updateHUD();
+}
+
+function reload() {
+  if (ammo === 30 || reserve === 0) return;
+  soundReload();
+  const need = 30 - ammo;
+  const take = Math.min(need, reserve);
+  ammo += take; reserve -= take;
+  updateHUD();
+}
+
+function updateHUD() {
+  document.getElementById('hp').textContent = hp;
+  document.getElementById('kills').textContent = kills;
+  document.getElementById('ammo').textContent = ammo;
+  document.getElementById('timer').textContent = Math.ceil(timer);
+}
+
+/* ============ УПРАВЛЕНИЕ ============ */
+document.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key.toLowerCase() === 'r' && running) reload();
+  if (e.key === 'Escape' && running) backToMenu();
+});
+document.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (W/rect.width);
+  const my = (e.clientY - rect.top) * (H/rect.height);
+  player.angle = Math.atan2(my - player.y, mx - player.x);
+  const ch = document.getElementById('crosshair');
+  ch.style.left = e.clientX + 'px';
+  ch.style.top = e.clientY + 'px';
+});
+canvas.addEventListener('mousedown', e => { if (running && e.button===0) shoot(); });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ============ ИГРОВОЙ ЦИКЛ ============ */
+function loop() {
+  if (!running) return;
+  const now = performance.now();
+  const dt = Math.min((now - lastTime)/16.67, 2);
+  lastTime = now;
+
+  // движение
+  let dx=0, dy=0;
+  if (keys['w']) dy -= 1;
+  if (keys['s']) dy += 1;
+  if (keys['a']) dx -= 1;
+  if (keys['d']) dx += 1;
+  if (dx||dy) {
+    const l = Math.hypot(dx,dy);
+    player.x += (dx/l)*player.speed*dt;
+    player.y += (dy/l)*player.speed*dt;
+  }
+  player.x = Math.max(20, Math.min(W-20, player.x));
+  player.y = Math.max(20, Math.min(H-20, player.y));
+
+  // спавн врагов
+  spawnTimer -= dt;
+  if (spawnTimer <= 0) {
+    spawnEnemy();
+    spawnTimer = 60 - Math.min(40, kills*2);
+  }
+
+  // пули
+  for (let i=bullets.length-1; i>=0; i--) {
+    const b = bullets[i];
+    b.x += b.vx*dt; b.y += b.vy*dt; b.life -= dt;
+    if (b.life<=0 || b.x<0||b.x>W||b.y<0||b.y>H) { bullets.splice(i,1); continue; }
+    // попадания
+    for (let j=enemies.length-1; j>=0; j--) {
+      const e = enemies[j];
+      if (Math.hypot(b.x-e.x, b.y-e.y) < e.r) {
+        e.hp--;
+        soundHit();
+        bullets.splice(i,1);
+        // кровь/искры
+        for (let k=0;k<8;k++) {
+          particles.push({
+            x:e.x, y:e.y,
+            vx:(Math.random()-0.5)*4, vy:(Math.random()-0.5)*4,
+            life:20, color: e.spirit ? '#00ff88' : '#ff3333'
+          });
+        }
+        if (e.hp<=0) {
+          enemies.splice(j,1);
+          kills++;
+          updateHUD();
+        }
+        break;
+      }
+    }
+  }
+
+  // враги атакуют
+  for (let i=enemies.length-1; i>=0; i--) {
+    const e = enemies[i];
+    const a = Math.atan2(player.y-e.y, player.x-e.x);
+    e.x += Math.cos(a)*e.speed*dt;
+    e.y += Math.sin(a)*e.speed*dt;
+    if (Math.hypot(player.x-e.x, player.y-e.y) < player.r + e.r) {
+      hp -= 10;
+      enemies.splice(i,1);
+      beep(150, 0.2, 'sawtooth', 0.3);
+      updateHUD();
+      if (hp <= 0) { endGame(false); return; }
+    }
+  }
+
+  // частицы
+  for (let i=particles.length-1; i>=0; i--) {
+    const p = particles[i];
+    p.x += p.vx*dt; p.y += p.vy*dt; p.life -= dt;
+    if (p.life<=0) particles.splice(i,1);
+  }
+
+  // таймер
+  timer -= dt/60;
+  if (timer <= 0) { endGame(true); return; }
+  updateHUD();
+
+  // ============ РЕНДЕР ============
+  // фон — карта de_dust
+  ctx.fillStyle = '#2a2418';
+  ctx.fillRect(0,0,W,H);
+  // текстура песка
+  ctx.fillStyle = 'rgba(200,170,100,0.08)';
+  for (let i=0;i<50;i++) {
+    ctx.fillRect((i*73)%W, (i*137)%H, 40, 40);
+  }
+  // ящики
+  ctx.fillStyle = '#5a4020';
+  ctx.fillRect(100, 100, 80, 80);
+  ctx.fillRect(W-180, 150, 100, 60);
+  ctx.fillRect(200, H-180, 120, 80);
+  ctx.fillRect(W-250, H-200, 90, 90);
+  ctx.fillRect(W/2-40, 200, 80, 40);
+  ctx.strokeStyle = '#3a2810'; ctx.lineWidth = 3;
+  ctx.strokeRect(100,100,80,80);
+  ctx.strokeRect(W-180,150,100,60);
+  ctx.strokeRect(200,H-180,120,80);
+  ctx.strokeRect(W-250,H-200,90,90);
+
+  // частицы
+  for (const p of particles) {
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = Math.max(0, p.life/20);
+    ctx.fillRect(p.x-2, p.y-2, 4, 4);
+  }
+  ctx.globalAlpha = 1;
+
+  // враги — это "духи" Team Spirit (для пасхалки они слабые)
+  for (const e of enemies) {
+    e.spirit = true;
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    // тело
+    ctx.fillStyle = '#00aa55';
+    ctx.fillRect(-15, -5, 30, 30);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 8px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('SPIRIT', 0, 15);
+    // голова
+    ctx.fillStyle = '#f5d0a9';
+    ctx.beginPath(); ctx.arc(0,-15,10,0,Math.PI*2); ctx.fill();
+    // волосы
+    ctx.fillStyle = '#333';
+    ctx.beginPath(); ctx.arc(0,-18,10,Math.PI,0); ctx.fill();
+    // HP bar
+    ctx.fillStyle = '#000'; ctx.fillRect(-15,-30,30,4);
+    ctx.fillStyle = '#0f0'; ctx.fillRect(-15,-30,30*(e.hp/2),4);
+    ctx.restore();
+  }
+
+  // пули
+  ctx.fillStyle = '#ffcc00';
+  for (const b of bullets) {
+    ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI*2); ctx.fill();
+  }
+
+  // игрок — Дмитрий Грозин
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  ctx.rotate(player.angle);
+  // оружие
+  ctx.fillStyle = '#222';
+  ctx.fillRect(10, -3, 25, 6);
+  ctx.fillStyle = '#555';
+  ctx.fillRect(30, -4, 8, 8);
+  ctx.restore();
+  // тело (рисуем поверх, не вращая)
+  drawCharacter(ctx, player.x, player.y+10, 55, true);
+
+  requestAnimationFrame(loop);
+}
+
+function endGame(win) {
+  running = false;
+  document.getElementById('hud').classList.add('hidden');
+  document.getElementById('crosshair').classList.add('hidden');
+  document.getElementById('finalKills').textContent = kills;
+  document.getElementById('endTitle').textContent = win ? '🏆 ПОБЕДА!' : '💀 ПОРАЖЕНИЕ';
+  document.getElementById('gameOver').classList.remove('hidden');
+  win ? soundWin() : soundLose();
+}
+
+/* ============ ПАСХАЛКА: Team Spirit > Falcons ============ */
+let eggClicks = 0;
+document.getElementById('secretBtn').addEventListener('click', () => {
+  eggClicks++;
+  beep(800 + eggClicks*100, 0.1, 'sine', 0.2);
+  if (eggClicks >= 5) {
+    soundEgg();
+    alert('🥚 ПАСХАЛКА РАЗБЛОКИРОВАНА! 🥚\n\n💚 TEAM SPIRIT СИЛЬНЕЕ FALCONS! 💚\n\nm0NESY играет в Spirit — и это легенда!\nДима и Лёша знают правду 😉');
+    eggClicks = 0;
+  }
+});
+
+// стартовый клик для активации аудио
+document.body.addEventListener('click', () => { if (audio.state==='suspended') audio.resume(); }, { once:true });
+</script>
+</body>
+</html>
